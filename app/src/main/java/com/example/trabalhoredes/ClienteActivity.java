@@ -1,5 +1,6 @@
 package com.example.trabalhoredes;
 
+import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.app.Activity;
@@ -14,8 +15,13 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.Socket;
+import java.net.UnknownHostException;
 
 public class ClienteActivity extends Activity {
 
@@ -28,7 +34,8 @@ public class ClienteActivity extends Activity {
     MyClientTask myClientTask;
 
     Socket socket;
-
+    DataOutputStream dataOutputStream;
+    DataInputStream dataInputStream;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,9 +76,6 @@ public class ClienteActivity extends Activity {
 
         @Override
         public void onClick(View arg0) {
-
-            String tMsg = "Enviar Desenho";
-            //TODO Criar socket em nova thread
             MyClientSocketTask mcst = new MyClientSocketTask();
             mcst.execute(editTextAddress.getText().toString(), editTextPort.getText().toString());
         }
@@ -80,11 +84,7 @@ public class ClienteActivity extends Activity {
     View.OnTouchListener enviarBitmap = new View.OnTouchListener() {
         @Override
         public boolean onTouch(View view, MotionEvent motionEvent) {
-            String tMsg = "Enviar Desenho";
-
-            myClientTask = new MyClientTask(socket, tMsg, textResponse, drawView.getBitmap());
-            myClientTask.execute();
-            myClientTask = null;
+            new MyClientTask().execute(drawView.getBitmap());
             return false;
         }
     };
@@ -107,12 +107,53 @@ public class ClienteActivity extends Activity {
         @Override
         protected void onPostExecute(Socket sckt) {
             socket = sckt;
+            try {
+                dataOutputStream = new DataOutputStream(socket.getOutputStream());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            try {
+                dataInputStream = new DataInputStream(socket.getInputStream());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             Log.d(refLog, "socket instanciado");
         }
 
     }
 
 
+    public class MyClientTask extends AsyncTask<Bitmap, Void, String> {
+
+        @Override
+        protected String doInBackground(Bitmap... params) {
+            try {
+
+                // Recebe bitmap de servidor
+                //TODO
+                // Envia bitmap de cliente
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                params[0].compress(Bitmap.CompressFormat.PNG, 0 /*ignored for PNG*/, bos);
+                byte[] array = bos.toByteArray();
+                dataOutputStream.writeInt(array.length);
+                dataOutputStream.write(array, 0, array.length);
+                return ("Bitmap enviado: de tamanho" + array.length);
+
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+                return "UnknownHostException: " + e.toString();
+            } catch (IOException e) {
+                e.printStackTrace();
+                return "IOException: " + e.toString();
+            }
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            ((TextView) findViewById(R.id.response)).setText(result);
+        }
+
+    }
 
 
 }

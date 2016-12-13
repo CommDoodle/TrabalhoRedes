@@ -4,13 +4,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
-import java.util.Arrays;
 import java.util.Enumeration;
 
 import android.graphics.Bitmap;
@@ -25,7 +23,7 @@ import android.widget.TextView;
 public class ServidorActivity extends Activity {
 
     TextView info, infoip, msg;
-    String message = "";
+    String serverLog = "";
     ServerSocket serverSocket;
     Bitmap bitmapClient;
     Bitmap bitmapServer;
@@ -103,7 +101,6 @@ public class ServidorActivity extends Activity {
             try {
                 serverSocket = new ServerSocket(SocketServerPORT);
                 ServidorActivity.this.runOnUiThread(new Runnable() {
-
                     @Override
                     public void run() {
                         info.setText("Porta: " + serverSocket.getLocalPort() + " ");
@@ -115,9 +112,8 @@ public class ServidorActivity extends Activity {
                     dataInputStream = new DataInputStream(socket.getInputStream());
                     dataOutputStream = new DataOutputStream(socket.getOutputStream());
 
-                    String messageFromClient = "";
-
-                    //If no message sent from client, this code will block the program
+                    // Envia bitmap do servidor
+                    //TODO
 
                     // Atualiza bitmap local usando bitmap do cliente
                     byte[] data;
@@ -125,31 +121,24 @@ public class ServidorActivity extends Activity {
                     data = new byte[len];
                     if (len > 0) {
                         dataInputStream.readFully(data, 0, data.length);
-                        if (!BitmapFactory.decodeByteArray(data, 0, data.length).sameAs(bitmapServer))
-                            bitmapClient = BitmapFactory.decodeByteArray(data, 0, data.length);
+                        bitmapClient = BitmapFactory.decodeByteArray(data, 0, data.length);
                     }
 
-                    // Envia bitmap do servidor
-                    //TODO
 
                     //Inutilidade
                     count++;
-                    message += "#" + count + socket.getInetAddress()
-                            + ":" + socket.getPort() + "\n";
+                    serverLog += "#" + count + socket.getInetAddress() + ":" + socket.getPort() + "\n";
 
                     ServidorActivity.this.runOnUiThread(new Runnable() {
 
                         @Override
                         public void run() {
-                            msg.setText(message);
+                            msg.setText(serverLog);
                             //Aqui que está o erro. Culpa desse excesso de multi threading
                             // que é um assunto que a gnt nem viu ainda na vida.
                             synchronized (drawView)
                             {
                                 drawView.atualizaBitmap(bitmapClient);
-                            }
-                            synchronized (drawView) {
-
 
                                 ByteArrayOutputStream bos = new ByteArrayOutputStream();
                                 drawView.getBitmap().compress(Bitmap.CompressFormat.PNG, 0 /*ignored for PNG*/, bos);
@@ -182,30 +171,6 @@ public class ServidorActivity extends Activity {
                     }
                 });
 
-            } finally {
-                if (socket != null) {
-                    /*try {
-                        socket.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }*/
-                }
-
-                if (dataInputStream != null) {
-                    /*try {
-                        dataInputStream.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }*/
-                }
-
-                if (dataOutputStream != null) {
-                    /*try {
-                        dataOutputStream.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }*/
-                }
             }
         }
 
