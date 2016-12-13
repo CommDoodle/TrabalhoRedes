@@ -106,17 +106,14 @@ public class ServidorActivity extends Activity {
 
                     @Override
                     public void run() {
-                        info.setText("Porta: "
-                                + serverSocket.getLocalPort() + " ");
+                        info.setText("Porta: " + serverSocket.getLocalPort() + " ");
                     }
                 });
 
                 while (true) {
                     socket = serverSocket.accept();
-                    dataInputStream = new DataInputStream(
-                            socket.getInputStream());
-                    dataOutputStream = new DataOutputStream(
-                            socket.getOutputStream());
+                    dataInputStream = new DataInputStream(socket.getInputStream());
+                    dataOutputStream = new DataOutputStream(socket.getOutputStream());
 
                     String messageFromClient = "";
 

@@ -18,8 +18,6 @@ import java.net.UnknownHostException;
 
 public class MyClientTask extends AsyncTask<Void, Void, Void> {
 
-    String dstAddress;
-    int dstPort;
     String response = "";
     String msgToServer;
     TextView textResp;
@@ -27,9 +25,7 @@ public class MyClientTask extends AsyncTask<Void, Void, Void> {
 
     Socket socket;
 
-    MyClientTask(Socket socket, String addr, int port, String msgTo, TextView textResponse, Bitmap bitCliente) {
-        dstAddress = addr;
-        dstPort = port;
+    MyClientTask(Socket socket, String msgTo, TextView textResponse, Bitmap bitCliente) {
         msgToServer = msgTo;
         textResp = textResponse;
         bitmapCliente = bitCliente;
@@ -39,16 +35,12 @@ public class MyClientTask extends AsyncTask<Void, Void, Void> {
 
     @Override
     protected Void doInBackground(Void... arg0) {
-
-
-
             DataOutputStream dataOutputStream = null;
             DataInputStream dataInputStream = null;
 
             try {
 
-                dataOutputStream = new DataOutputStream(
-                        socket.getOutputStream());
+                dataOutputStream = new DataOutputStream(socket.getOutputStream());
                 dataInputStream = new DataInputStream(socket.getInputStream());
 
                 // Envia bitmap de cliente

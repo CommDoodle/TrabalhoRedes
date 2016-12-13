@@ -1,7 +1,9 @@
 package com.example.trabalhoredes;
 
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.app.Activity;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -70,17 +72,8 @@ public class ClienteActivity extends Activity {
 
             String tMsg = "Enviar Desenho";
             //TODO Criar socket em nova thread
-            try {
-                MyClientSocketTask instanciaSocket = new MyClientSocketTask(socket, editTextAddress.getText().toString(), Integer.parseInt(editTextPort
-                        .getText().toString()));
-                instanciaSocket.execute();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            myClientTask = new MyClientTask(socket, editTextAddress.getText().toString(), Integer.parseInt(editTextPort
-                    .getText().toString()), tMsg, textResponse, drawView.getBitmap());
-            myClientTask.execute();
-            myClientTask = null;
+            MyClientSocketTask mcst = new MyClientSocketTask();
+            mcst.execute(editTextAddress.getText().toString(), editTextPort.getText().toString());
         }
     };
 
@@ -89,13 +82,35 @@ public class ClienteActivity extends Activity {
         public boolean onTouch(View view, MotionEvent motionEvent) {
             String tMsg = "Enviar Desenho";
 
-            myClientTask = new MyClientTask(socket, editTextAddress.getText().toString(), Integer.parseInt(editTextPort
-                    .getText().toString()), tMsg, textResponse, drawView.getBitmap());
+            myClientTask = new MyClientTask(socket, tMsg, textResponse, drawView.getBitmap());
             myClientTask.execute();
             myClientTask = null;
             return false;
         }
     };
+
+    public class MyClientSocketTask extends AsyncTask<String, Void, Socket> {
+
+        String refLog = "ClientSocketTask";
+
+        @Override
+        protected Socket doInBackground(String... params) {
+
+            try {
+                return new Socket(params[0], Integer.parseInt(params[1]));
+            } catch (IOException e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+        @Override
+        protected void onPostExecute(Socket sckt) {
+            socket = sckt;
+            Log.d(refLog, "socket instanciado");
+        }
+
+    }
 
 
 
