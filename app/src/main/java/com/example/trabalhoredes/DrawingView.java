@@ -3,6 +3,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.util.Base64;
+import android.util.Log;
 import android.view.View;
 
 import android.content.Context;
@@ -20,6 +21,7 @@ import java.io.ByteArrayOutputStream;
  */
 
 public class DrawingView extends View {
+    public String TAG = "DrawingView";
 
     //drawing path
     private Path drawPath;
@@ -65,6 +67,7 @@ public class DrawingView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         //draw view
+        Log.d(TAG, "Opa! Estou dentro do onDraw.");
         canvas.drawBitmap(canvasBitmap, 0, 0, canvasPaint);
         canvas.drawPath(drawPath, drawPaint);
     }
@@ -74,7 +77,7 @@ public class DrawingView extends View {
         //detect user touch
         float touchX = event.getX();
         float touchY = event.getY();
-
+        Log.d(TAG, "Opa! Estou dentro de onTouchEvent.");
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 drawPath.moveTo(touchX, touchY);
@@ -102,13 +105,18 @@ public class DrawingView extends View {
 
     public synchronized void atualizaBitmap(Bitmap bip)
     {
-        canvasBitmap = bip;//overlay(bip, canvasBitmap);
-        this.draw(drawCanvas);
+        Log.d(TAG, "Opa! Estou dentro de atualizaBitmap.");
+        Bitmap bmp2 = bip.copy(bip.getConfig(), true);
+        //Canvas canvasBmp2 = new Canvas( bmp2 );
+        drawCanvas.drawBitmap(bmp2, 0, 0, null);
+        //canvasBitmap = Bitmap.createBitmap(bip.getWidth(), bip.getHeight(), bip.getConfig());//bip;//overlay(bip, canvasBitmap);
+        //this.draw(drawCanvas);
         invalidate();
     }
 
-    public Bitmap getBitmap()
+    public synchronized Bitmap getBitmap()
     {
+        Log.d(TAG, "Opa! Estou dentro de getBitmap.");
         return this.canvasBitmap;
     }
 

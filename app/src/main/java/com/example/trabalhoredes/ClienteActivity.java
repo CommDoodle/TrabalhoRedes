@@ -1,6 +1,7 @@
 package com.example.trabalhoredes;
 
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.app.Activity;
@@ -18,12 +19,14 @@ import android.widget.Toast;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
 public class ClienteActivity extends Activity {
+    private String TAG = "ClienteActivity";
 
     TextView textResponse;
     EditText editTextAddress, editTextPort;
@@ -37,13 +40,14 @@ public class ClienteActivity extends Activity {
     DataOutputStream dataOutputStream;
     DataInputStream dataInputStream;
 
+    public int count = 0;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_cliente_inicio);
 
         editTextAddress = (EditText) findViewById(R.id.address);
-        editTextAddress.setText("192.168.43.1");
+        editTextAddress.setText("192.168.1.37");
         editTextPort = (EditText) findViewById(R.id.port);
         editTextPort.setText("8080");
         buttonConnect = (Button) findViewById(R.id.connect);
@@ -97,7 +101,10 @@ public class ClienteActivity extends Activity {
         protected Socket doInBackground(String... params) {
 
             try {
-                return new Socket(params[0], Integer.parseInt(params[1]));
+                Socket socket = new Socket(params[0], Integer.parseInt(params[1]));
+                (new SocketListen(socket)).start();
+                Log.d(TAG, "Criado thread para o Cliente escutar recebimentos de servidor");
+                return socket;
             } catch (IOException e) {
                 e.printStackTrace();
                 return null;
@@ -128,16 +135,15 @@ public class ClienteActivity extends Activity {
         @Override
         protected String doInBackground(Bitmap... params) {
             try {
-
-                // Recebe bitmap de servidor
-                //TODO
                 // Envia bitmap de cliente
                 ByteArrayOutputStream bos = new ByteArrayOutputStream();
                 params[0].compress(Bitmap.CompressFormat.PNG, 0 /*ignored for PNG*/, bos);
                 byte[] array = bos.toByteArray();
                 dataOutputStream.writeInt(array.length);
                 dataOutputStream.write(array, 0, array.length);
-                return ("Bitmap enviado: de tamanho" + array.length);
+                dataOutputStream.flush();
+                count++;
+                return ("Bitmap #"+count+" sent. Size: " + array.length);
 
             } catch (UnknownHostException e) {
                 e.printStackTrace();
@@ -155,5 +161,63 @@ public class ClienteActivity extends Activity {
 
     }
 
+    private class SocketListen extends Thread {
+        public int count = 1;
+        public String TAG = "SocketListen";
+        Socket socket = null;
 
+        public SocketListen(Socket socket) {
+            this.socket = socket;
+        }
+
+        @Override
+        public void run() {
+            try {
+                Log.d(TAG, "Dentro da thread que pega recebimentos do servidor" + socket.getInetAddress() + ":" + socket.getPort());
+                while (true && socket.isConnected()) {
+
+                    try {
+                        int len = dataInputStream.readInt();
+                        if (len > 0) {
+                            // Vou receber bitmap do servidor
+                            Log.d(TAG, "Opa! Recebi pela #" + count + " um bitmap do servidor " + socket.getInetAddress() + ":" + socket.getPort());
+                            Log.d(TAG, "Bitmap size: " + len);
+                            count++;
+                            byte[] data = new byte[len];
+                            dataInputStream.readFully(data, 0, data.length);
+                            Bitmap bitmapClient = BitmapFactory.decodeByteArray(data, 0, data.length);
+                            MyRunnableBitmap runnable = new MyRunnableBitmap();
+                            runnable.setData(bitmapClient);
+                            runOnUiThread(runnable);
+
+                        }
+                    } catch (EOFException e) {
+                    } catch (IOException ef) {
+                    }
+                }
+                if (!socket.isConnected()) {
+                    dataInputStream.close();
+                    dataInputStream = null;
+                    dataOutputStream.close();
+                    dataOutputStream = null;
+                    socket.close();
+                    socket = null;
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                Log.d("Travou: ", e.toString());
+            }
+        }
+
+        private class MyRunnableBitmap implements Runnable {
+            private Bitmap bitmap;
+            public void setData(Bitmap _bitmap) {
+                this.bitmap = _bitmap;
+            }
+
+            public void run() {
+                drawView.atualizaBitmap(bitmap);
+            }
+        }
+    }
 }

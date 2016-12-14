@@ -17,6 +17,7 @@ import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.app.Activity;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -135,6 +136,7 @@ public class ServidorActivity extends Activity {
         }
     }
     private class SocketServerThread extends Thread {
+        public int count = 1;
         public String TAG = "SocketServerThread";
         Socket socket = null;
         public SocketServerThread(Socket socket) { this.socket = socket;}
@@ -144,24 +146,42 @@ public class ServidorActivity extends Activity {
                 Log.d(TAG, "Dentro da thread que trata Cliente " + socket.getInetAddress() + ":" + socket.getPort());
                 DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
                 DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
-                while (true) {
-                    // Envia bitmap do servidor
-                    //TODO
-                    // Atualiza bitmap local usando bitmap do cliente
+                while (true && socket.isConnected()) {
+
                     try {
                         len = dataInputStream.readInt();
                         if (len > 0) {
-                            Log.d(TAG, "Opa! Recebi um bitmap de " + socket.getInetAddress() + ":" + socket.getPort());
+                            // Vou receber bitmap do cliente
+                            Log.d(TAG, "Opa! Recebi pela #"+count+" um bitmap de " + socket.getInetAddress() + ":" + socket.getPort());
+                            Log.d(TAG, "Bitmap size: "+len);
+                            count++;
                             byte[] data = new byte[len];
                             dataInputStream.readFully(data, 0, data.length);
                             Bitmap bitmapClient = BitmapFactory.decodeByteArray(data, 0, data.length);
-
                             MyRunnableBitmap runnable = new MyRunnableBitmap();
                             runnable.setData(bitmapClient);
                             runOnUiThread(runnable);
+
+                            Log.d(TAG, "Vou enviar meu bitmap atualizado para: " + socket.getInetAddress() + ":" + socket.getPort());
+                            // Vou enviar bitmap do servidor
+                            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                            drawView.getBitmap().compress(Bitmap.CompressFormat.PNG, 0 /*ignored for PNG*/, bos);
+                            byte[] array = bos.toByteArray();
+                            dataOutputStream.writeInt(array.length);
+                            dataOutputStream.write(array, 0, array.length);
+                            dataOutputStream.flush();
+
                         }
                     } catch (EOFException e) {}
                     catch (IOException ef) {}
+                }
+                if (!socket.isConnected()) {
+                    dataInputStream.close();
+                    dataInputStream = null;
+                    dataOutputStream.close();
+                    dataOutputStream = null;
+                    socket.close();
+                    socket = null;
                 }
             } catch (IOException e) {
                 e.printStackTrace();
