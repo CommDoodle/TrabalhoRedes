@@ -28,7 +28,7 @@ public class ServidorActivity extends Activity {
     //Logging
     public String TAG = "ServidorActivity: ";
 
-    TextView info, infoip, msg;
+    TextView info, infoip, logExterno;
     String serverLog = "";
     ServerSocket serverSocket;
     Bitmap bitmapServer;
@@ -44,7 +44,7 @@ public class ServidorActivity extends Activity {
         //Comunicacao
         info = (TextView) findViewById(R.id.info);
         infoip = (TextView) findViewById(R.id.infoip);
-        msg = (TextView) findViewById(R.id.msg);
+        logExterno = (TextView) findViewById(R.id.msg);
         infoip.setText(getIpAddress());
 
         //Desenho
@@ -57,8 +57,8 @@ public class ServidorActivity extends Activity {
             int count = 0;
             serverSocket = new ServerSocket(8080);
             info.setText("Porta: " + serverSocket.getLocalPort() + " ");
-            Log.d(TAG, "Criado serverSocket. IP:"+infoip+" Porta:"+serverSocket.getLocalPort());
-            new RodaServerThread(serverSocket);
+            Log.d(TAG, "Criado serverSocket. IP:"+infoip.getText()+" Porta:"+serverSocket.getLocalPort());
+            (new RodaServerThread(serverSocket)).start();
             Log.d(TAG, "Criado thread para rodar servidor");
         } catch (IOException e) {
             e.printStackTrace();
@@ -109,13 +109,28 @@ public class ServidorActivity extends Activity {
                     socket = serverSocket.accept();
                     Log.d(TAG, "Cliente #" + count + socket.getInetAddress() + ":" + socket.getPort());
                     serverLog += "Cliente #" + count + socket.getInetAddress() + ":" + socket.getPort() + "\n";
-                    msg.setText(serverLog);
+
+                    MyRunnableTextView runnable = new MyRunnableTextView();
+                    runnable.setData(serverLog);
+                    runOnUiThread(runnable);
+
                     new SocketServerThread(socket).start();
                     Log.d(TAG, "Criado thread para o Cliente #" + count);
                     count++;
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    //e.printStackTrace();
                 }
+            }
+        }
+
+        private class MyRunnableTextView implements Runnable {
+            private String string;
+            public void setData(String _string) {
+                this.string = _string;
+            }
+
+            public void run() {
+                logExterno.setText(string);
             }
         }
     }
@@ -137,11 +152,13 @@ public class ServidorActivity extends Activity {
                         len = dataInputStream.readInt();
                         if (len > 0) {
                             Log.d(TAG, "Opa! Recebi um bitmap de " + socket.getInetAddress() + ":" + socket.getPort());
-                            byte[] data;
-                            data = new byte[len];
+                            byte[] data = new byte[len];
                             dataInputStream.readFully(data, 0, data.length);
                             Bitmap bitmapClient = BitmapFactory.decodeByteArray(data, 0, data.length);
-                            drawView.atualizaBitmap(bitmapClient);
+
+                            MyRunnableBitmap runnable = new MyRunnableBitmap();
+                            runnable.setData(bitmapClient);
+                            runOnUiThread(runnable);
                         }
                     } catch (EOFException e) {}
                     catch (IOException ef) {}
@@ -152,6 +169,16 @@ public class ServidorActivity extends Activity {
             }
         }
 
+        private class MyRunnableBitmap implements Runnable {
+            private Bitmap bitmap;
+            public void setData(Bitmap _bitmap) {
+                this.bitmap = _bitmap;
+            }
+
+            public void run() {
+                drawView.atualizaBitmap(bitmap);
+            }
+        }
     }
 
     private String getIpAddress() {
