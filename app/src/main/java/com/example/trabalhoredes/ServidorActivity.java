@@ -3,6 +3,7 @@ package com.example.trabalhoredes;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -15,6 +16,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.app.Activity;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -22,19 +24,17 @@ import android.widget.TextView;
 
 public class ServidorActivity extends Activity {
 
+
+    //Logging
+    public String TAG = "ServidorActivity: ";
+
     TextView info, infoip, msg;
     String serverLog = "";
     ServerSocket serverSocket;
-    Bitmap bitmapClient;
     Bitmap bitmapServer;
     private DrawingView drawView;
     private ImageButton currPaint;
     int len = 0;
-
-
-    // Input output
-    DataInputStream dataInputStream = null;
-    DataOutputStream dataOutputStream = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,21 +45,24 @@ public class ServidorActivity extends Activity {
         info = (TextView) findViewById(R.id.info);
         infoip = (TextView) findViewById(R.id.infoip);
         msg = (TextView) findViewById(R.id.msg);
-
         infoip.setText(getIpAddress());
-
-        Thread socketServerThread = new Thread(new SocketServerThread());
-        socketServerThread.start();
-
 
         //Desenho
         drawView = (DrawingView) findViewById(R.id.drawingServidor);
         LinearLayout paintLayout = (LinearLayout) findViewById(R.id.paint_colorsServidor);
         currPaint = (ImageButton)paintLayout.getChildAt(0);
         currPaint.setImageDrawable(getResources().getDrawable(R.drawable.paint_pressed));
-        bitmapServer = drawView.getBitmap();
 
-
+        try {
+            int count = 0;
+            serverSocket = new ServerSocket(8080);
+            info.setText("Porta: " + serverSocket.getLocalPort() + " ");
+            Log.d(TAG, "Criado serverSocket. IP:"+infoip+" Porta:"+serverSocket.getLocalPort());
+            new RodaServerThread(serverSocket);
+            Log.d(TAG, "Criado thread para rodar servidor");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void paintClicked(View view){
@@ -89,88 +92,63 @@ public class ServidorActivity extends Activity {
         }
     }
 
+    private class RodaServerThread extends Thread {
+        String TAG = "RodaServerThread:";
+        ServerSocket serverSocket = null;
+        public RodaServerThread(ServerSocket serverSocket) {
+            this.serverSocket = serverSocket;
+        }
+
+        public void run()
+        {
+            int count = 0;
+            while (true)
+            {
+                Socket socket = null;
+                try {
+                    socket = serverSocket.accept();
+                    Log.d(TAG, "Cliente #" + count + socket.getInetAddress() + ":" + socket.getPort());
+                    serverLog += "Cliente #" + count + socket.getInetAddress() + ":" + socket.getPort() + "\n";
+                    msg.setText(serverLog);
+                    new SocketServerThread(socket).start();
+                    Log.d(TAG, "Criado thread para o Cliente #" + count);
+                    count++;
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
     private class SocketServerThread extends Thread {
-
-        static final int SocketServerPORT = 8080;
-        int count = 0;
-
+        public String TAG = "SocketServerThread";
+        Socket socket = null;
+        public SocketServerThread(Socket socket) { this.socket = socket;}
         @Override
         public void run() {
-            Socket socket = null;
-
             try {
-                serverSocket = new ServerSocket(SocketServerPORT);
-                ServidorActivity.this.runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        info.setText("Porta: " + serverSocket.getLocalPort() + " ");
-                    }
-                });
-
+                Log.d(TAG, "Dentro da thread que trata Cliente " + socket.getInetAddress() + ":" + socket.getPort());
+                DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
+                DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
                 while (true) {
-                    socket = serverSocket.accept();
-                    dataInputStream = new DataInputStream(socket.getInputStream());
-                    dataOutputStream = new DataOutputStream(socket.getOutputStream());
-
                     // Envia bitmap do servidor
                     //TODO
-
                     // Atualiza bitmap local usando bitmap do cliente
-                    byte[] data;
-                    len = dataInputStream.readInt();
-                    data = new byte[len];
-                    if (len > 0) {
-                        dataInputStream.readFully(data, 0, data.length);
-                        bitmapClient = BitmapFactory.decodeByteArray(data, 0, data.length);
-                    }
-
-
-                    //Inutilidade
-                    count++;
-                    serverLog += "#" + count + socket.getInetAddress() + ":" + socket.getPort() + "\n";
-
-                    ServidorActivity.this.runOnUiThread(new Runnable() {
-
-                        @Override
-                        public void run() {
-                            msg.setText(serverLog);
-                            //Aqui que está o erro. Culpa desse excesso de multi threading
-                            // que é um assunto que a gnt nem viu ainda na vida.
-                            synchronized (drawView)
-                            {
-                                drawView.atualizaBitmap(bitmapClient);
-
-                                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                                drawView.getBitmap().compress(Bitmap.CompressFormat.PNG, 0 /*ignored for PNG*/, bos);
-                                byte[] array = bos.toByteArray();
-
-                                try {
-                                    dataOutputStream.writeInt(array.length);
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
-                                try {
-                                    dataOutputStream.write(array, 0, array.length);
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
-                            }
-
+                    try {
+                        len = dataInputStream.readInt();
+                        if (len > 0) {
+                            Log.d(TAG, "Opa! Recebi um bitmap de " + socket.getInetAddress() + ":" + socket.getPort());
+                            byte[] data;
+                            data = new byte[len];
+                            dataInputStream.readFully(data, 0, data.length);
+                            Bitmap bitmapClient = BitmapFactory.decodeByteArray(data, 0, data.length);
+                            drawView.atualizaBitmap(bitmapClient);
                         }
-                    });
-
+                    } catch (EOFException e) {}
+                    catch (IOException ef) {}
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-                final String errMsg = e.toString();
-                ServidorActivity.this.runOnUiThread(new Runnable() {
-
-                    @Override
-                    public void run() {
-                        msg.setText(errMsg);
-                    }
-                });
-
+                Log.d("Travou: ",e.toString());
             }
         }
 

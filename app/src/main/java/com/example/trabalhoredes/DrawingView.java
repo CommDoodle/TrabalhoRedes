@@ -100,7 +100,7 @@ public class DrawingView extends View {
         drawPaint.setColor(paintColor);
     }
 
-    public void atualizaBitmap(Bitmap bip)
+    public synchronized void atualizaBitmap(Bitmap bip)
     {
         canvasBitmap = bip;//overlay(bip, canvasBitmap);
         this.draw(drawCanvas);
