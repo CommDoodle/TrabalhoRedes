@@ -30,11 +30,13 @@ public class ClienteActivity extends Activity {
 
     TextView textResponse;
     EditText editTextAddress, editTextPort;
-    Button buttonConnect, buttonClear;
+    Button buttonConnect;
+
+    String ip = "";
+    int port;
 
     private DrawingView drawView;
     private ImageButton currPaint;
-    MyClientTask myClientTask;
 
     Socket socket;
     DataOutputStream dataOutputStream;
@@ -46,10 +48,7 @@ public class ClienteActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_cliente_inicio);
 
-        editTextAddress = (EditText) findViewById(R.id.address);
-        editTextAddress.setText("192.168.1.37");
-        editTextPort = (EditText) findViewById(R.id.port);
-        editTextPort.setText("8080");
+
         buttonConnect = (Button) findViewById(R.id.connect);
         textResponse = (TextView) findViewById(R.id.response);
         buttonConnect.setOnClickListener(buttonConnectOnClickListener);
@@ -58,7 +57,30 @@ public class ClienteActivity extends Activity {
         LinearLayout paintLayout = (LinearLayout) findViewById(R.id.paint_colors);
         currPaint = (ImageButton)paintLayout.getChildAt(0);
         currPaint.setImageDrawable(getResources().getDrawable(R.drawable.paint_pressed));
-        drawView.setOnTouchListener(enviarBitmap);
+
+
+        Bundle b = getIntent().getExtras();
+
+        //Conexão sem precisar saber maluco!!
+        if (b != null)
+        {
+            if (b.getBoolean("direto"))
+            {
+                ip = b.getString("ip");
+                port = b.getInt("port");
+                LinearLayout cabecalho = (LinearLayout) findViewById(R.id.cabecalhoConexao);
+                cabecalho.setVisibility(LinearLayout.GONE);
+                MyClientSocketTask mcst = new MyClientSocketTask();
+                mcst.execute(ip, Integer.toString(port));
+                drawView.setOnTouchListener(enviarBitmap);
+            }
+        }
+        else {
+            editTextAddress = (EditText) findViewById(R.id.address);
+            editTextAddress.setText("192.168.1.37");
+            editTextPort = (EditText) findViewById(R.id.port);
+            editTextPort.setText("8080");
+        }
     }
 
 
@@ -82,6 +104,7 @@ public class ClienteActivity extends Activity {
         public void onClick(View arg0) {
             MyClientSocketTask mcst = new MyClientSocketTask();
             mcst.execute(editTextAddress.getText().toString(), editTextPort.getText().toString());
+            drawView.setOnTouchListener(enviarBitmap);
         }
     };
 

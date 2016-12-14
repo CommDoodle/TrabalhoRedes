@@ -10,7 +10,9 @@ import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.List;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -37,6 +39,9 @@ public class ServidorActivity extends Activity {
     private ImageButton currPaint;
     int len = 0;
 
+    //Lista das conexões com clientes
+    ListaSockets minhasConexoes = new ListaSockets();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -53,6 +58,23 @@ public class ServidorActivity extends Activity {
         LinearLayout paintLayout = (LinearLayout) findViewById(R.id.paint_colorsServidor);
         currPaint = (ImageButton)paintLayout.getChildAt(0);
         currPaint.setImageDrawable(getResources().getDrawable(R.drawable.paint_pressed));
+        drawView.setOnTouchListener(enviarBitmap);
+
+        //Lista negra de dispositivos
+        List<String> listaNegra = new ArrayList<String>();
+
+        Log.d(TAG, "Seu dispositivo: "+ android.os.Build.MODEL);
+
+        //Gera NSD
+        if (false)
+        {
+            Servidor servidor = new Servidor(this);
+            try {
+                servidor.rodar();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
 
         try {
             int count = 0;
@@ -65,6 +87,15 @@ public class ServidorActivity extends Activity {
             e.printStackTrace();
         }
     }
+
+    View.OnTouchListener enviarBitmap = new View.OnTouchListener() {
+        @Override
+        public boolean onTouch(View view, MotionEvent motionEvent) {
+            new EnviaParaTodosThread(minhasConexoes).start();
+            Log.d(TAG, "Criado thread para envios múltiplos devido a desenho no servidor");
+            return false;
+        }
+    };
 
     public void paintClicked(View view){
         //use chosen color
@@ -110,6 +141,17 @@ public class ServidorActivity extends Activity {
                     socket = serverSocket.accept();
                     Log.d(TAG, "Cliente #" + count + socket.getInetAddress() + ":" + socket.getPort());
                     serverLog += "Cliente #" + count + socket.getInetAddress() + ":" + socket.getPort() + "\n";
+                    minhasConexoes.add(socket);
+
+                    DataOutputStream dosTemp = new DataOutputStream(socket.getOutputStream());
+                    Log.d(TAG, "Enviando bitmap do servidor para recem conectado: " + socket.getInetAddress() + ":" + socket.getPort());
+                    // Vou enviar bitmap do servidor
+                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                    drawView.getBitmap().compress(Bitmap.CompressFormat.PNG, 0 /*ignored for PNG*/, bos);
+                    byte[] array = bos.toByteArray();
+                    dosTemp.writeInt(array.length);
+                    dosTemp.write(array, 0, array.length);
+                    dosTemp.flush();
 
                     MyRunnableTextView runnable = new MyRunnableTextView();
                     runnable.setData(serverLog);
@@ -135,6 +177,7 @@ public class ServidorActivity extends Activity {
             }
         }
     }
+
     private class SocketServerThread extends Thread {
         public int count = 1;
         public String TAG = "SocketServerThread";
@@ -164,12 +207,14 @@ public class ServidorActivity extends Activity {
 
                             Log.d(TAG, "Vou enviar meu bitmap atualizado para: " + socket.getInetAddress() + ":" + socket.getPort());
                             // Vou enviar bitmap do servidor
-                            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                            drawView.getBitmap().compress(Bitmap.CompressFormat.PNG, 0 /*ignored for PNG*/, bos);
-                            byte[] array = bos.toByteArray();
-                            dataOutputStream.writeInt(array.length);
-                            dataOutputStream.write(array, 0, array.length);
-                            dataOutputStream.flush();
+                            //ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                            //drawView.getBitmap().compress(Bitmap.CompressFormat.PNG, 0 /*ignored for PNG*/, bos);
+                            //byte[] array = bos.toByteArray();
+                            //dataOutputStream.writeInt(array.length);
+                            //dataOutputStream.write(array, 0, array.length);
+                            //dataOutputStream.flush();
+                            new EnviaParaTodosThread(minhasConexoes).start();
+                            Log.d(TAG, "Criado thread para envios múltiplos devido recebimento de cliente # " + socket.getInetAddress() + ":" + socket.getPort());
 
                         }
                     } catch (EOFException e) {}
@@ -197,6 +242,59 @@ public class ServidorActivity extends Activity {
 
             public void run() {
                 drawView.atualizaBitmap(bitmap);
+            }
+        }
+    }
+
+    private class EnviaParaTodosThread extends Thread {
+        public int count = 1;
+        public String TAG = "EnviaParaTodosThread";
+        ListaSockets minhasConexoes;
+        public EnviaParaTodosThread(ListaSockets minhasConexoes) { this.minhasConexoes = minhasConexoes;}
+        @Override
+        public void run() {
+            try {
+                Log.d(TAG, "Dentro da thread que envia para todos");
+                for (int i = 0; i < minhasConexoes.getLista().size(); i++) {
+                    Socket socket = minhasConexoes.get(i);
+                    if (socket != null) {
+                        DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
+                        DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
+                        if (socket.isConnected()) {
+                            Log.d(TAG, "Envios múltiplos: #"+count+" para: " + socket.getInetAddress() + ":" + socket.getPort());
+                            // Vou enviar bitmap do servidor
+                            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                            drawView.getBitmap().compress(Bitmap.CompressFormat.PNG, 0 /*ignored for PNG*/, bos);
+                            byte[] array = bos.toByteArray();
+                            try {
+                                dataOutputStream.writeInt(array.length);
+                                dataOutputStream.write(array, 0, array.length);
+                                dataOutputStream.flush();
+                            } catch (java.net.SocketException e)
+                            {
+                                Log.d(TAG, "Não enviado para: " + socket.getInetAddress() + ":" + socket.getPort() + ". Comunicação quebrada.");
+                            }
+                        }
+                        else {
+                            dataInputStream.close();
+                            dataInputStream = null;
+                            dataOutputStream.close();
+                            dataOutputStream = null;
+                            socket.close();
+                            socket = null;
+                        }
+                    }
+                    else
+                    {
+                        Log.d(TAG, "Socket #"+count +" está morto aqui (null).");
+                    }
+                    count++;
+                }
+                for (int j = minhasConexoes.getLista().size()-1; j > -1; j--)
+                    if (minhasConexoes.get(j) == null) minhasConexoes.remove(j);
+            } catch (IOException e) {
+                e.printStackTrace();
+                Log.d("Travou: ",e.toString());
             }
         }
     }
