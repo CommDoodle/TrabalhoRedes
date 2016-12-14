@@ -218,7 +218,7 @@ public class ClienteActivity extends Activity {
                     } catch (IOException ef) {
                     }
                 }
-                if (!socket.isConnected()) {
+                if (false) {
                     dataInputStream.close();
                     dataInputStream = null;
                     dataOutputStream.close();

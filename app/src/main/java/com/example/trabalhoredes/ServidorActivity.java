@@ -62,11 +62,12 @@ public class ServidorActivity extends Activity {
 
         //Lista negra de dispositivos
         List<String> listaNegra = new ArrayList<String>();
+        listaNegra.add("XT1022");
 
         Log.d(TAG, "Seu dispositivo: "+ android.os.Build.MODEL);
 
         //Gera NSD
-        if (false)
+        if (!listaNegra.contains("XT1022"))
         {
             Servidor servidor = new Servidor(this);
             try {

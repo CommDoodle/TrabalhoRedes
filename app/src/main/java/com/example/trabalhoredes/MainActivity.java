@@ -24,10 +24,11 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         List<String> listaNegra = new ArrayList<String>();
+        listaNegra.add("XT1022");
 
         Log.d("MainActivity", "Seu dispositivo: "+ android.os.Build.MODEL);
 
-        if (false)
+        if (!listaNegra.contains(android.os.Build.MODEL))
         {
             buttonConnect = (Button) findViewById(R.id.button3);
             buttonConnect.setEnabled(true);
